@@ -1,8 +1,11 @@
-# Explain
+# Exp or Explain
 
-**Explain** is a command-line tool that provides detailed information about the contents of a directory or a file. It can be used as an alternative to common Unix commands like `ls` and `cat`, offering additional features such as displaying the top 10 rows of a CSV file and calculating the total sizes of directories and files. 
+**Exp** short form of **Explain** is a command-line tool that provides detailed information about the contents of a directory or a file. It can be used as an alternative to common Unix commands like `ls` and `cat`, offering additional features such as displaying the top 10 rows of a CSV file and calculating the total sizes of directories and files. 
 
 The tool also presents the data in a well-formatted table for easy readability, using pretty printing techniques.
+## Screenshot
+
+![Explain CLI Screenshot](screenshots/sshot1.png)
 
 ## Features
 
@@ -19,14 +22,37 @@ The tool also presents the data in a well-formatted table for easy readability, 
 
 4. **Progress Bar**:
    - A progress bar is displayed while calculating the size of large directories to track the process.
-
 ## Installation
+
+#### Windows: 
+For windows users download the  build folder with explain.exe and exp.exe. Then add the folder path to Environment Variable
+
+or use below command
+```sh
+git clone https://github.com/xtareq/explain
+mv explain C:\\Tools
+setx PATH "%PATH%;C:\Tools\explain"
+
+```
+
+ Verify Installation: Close the current CMD window and open a new one. Verify that your CLI tool works by typing its name:
+
+```bash
+explain
+```
+If everything is set up correctly, the command should now work globally from any directory.
+#### Linux: 
+Coming Soon
+#### Mac: 
+Coming Soon
+
+## Manual Build
 
 You need to have [Rust](https://www.rust-lang.org/tools/install) installed to build and run this tool.
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/xtareq/explain
    cd explain
    ```
 
@@ -113,7 +139,3 @@ Feel free to submit pull requests for improvements or bug fixes. Please make sur
 ## License
 
 This project is licensed under the MIT License.
-
----
-
-This `README` outlines the purpose, usage, and inner workings of the project, offering a clean and user-friendly guide.

@@ -27,12 +27,12 @@ The tool also presents the data in a well-formatted table for easy readability, 
 #### Windows: 
 For windows users download the  build folder with explain.exe and exp.exe. Then add the folder path to Environment Variable
 
-or use below command
+or run below command in git bash or any bash terminal
 ```sh
 git clone https://github.com/xtareq/explain
-mv explain C:\\Tools
-setx PATH "%PATH%;C:\Tools\explain"
-
+mkdir /c/tools/explain
+mv explain/build/ /c/tools/explain
+setx PATH "%PATH%;C:\tools\explain"
 ```
 
  Verify Installation: Close the current CMD window and open a new one. Verify that your CLI tool works by typing its name:

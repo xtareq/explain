@@ -79,7 +79,7 @@ fn get_first_layer_full_sizes(start_path: &Path) -> io::Result<HashMap<PathBuf, 
     Ok(folder_sizes)
 }
 
-// Function to format size in KB, MB, or GB
+
 fn format_size(size: u64) -> String {
     const KB: u64 = 1_024;
     const MB: u64 = KB * 1_024;
@@ -96,9 +96,8 @@ fn format_size(size: u64) -> String {
     }
 }
 
-// Function to get the MIME type of a file and map to a human-readable type with emojis
+
 fn get_file_type(path: &Path) -> String {
-    // Define common programming file extensions and their emojis
     let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
     match extension {
         "rs" => "Rust".to_uppercase(),
@@ -137,7 +136,7 @@ fn get_file_type(path: &Path) -> String {
     }
 }
 
-// Function to get the name of the root directory
+
 fn format_root_name(path: &Path) -> String {
     let normalized_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
     match normalized_path.file_name() {
@@ -174,8 +173,6 @@ fn print_file_content(path: &Path) -> io::Result<()> {
     let mut file = fs::File::open(path)?;
     let mut content = String::new();
     file.read_to_string(&mut content)?;
-
-    // Get file extension for highlighting
     //let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
 
     println!("{}", &content);
@@ -184,12 +181,12 @@ fn print_file_content(path: &Path) -> io::Result<()> {
 }
 
 fn main() -> io::Result<()> {
-    // Get the CLI input or use the current directory if none is provided
+    // Get input or use the current directory 
     let args: Vec<String> = env::args().collect();
     let folder_path = if args.len() > 1 {
-        Path::new(&args[1]) // Use the path provided in the CLI
+        Path::new(&args[1]) 
     } else {
-        Path::new(".") // Default to current directory
+        Path::new(".") 
     };
 
   if folder_path.is_file() {
@@ -217,8 +214,7 @@ fn main() -> io::Result<()> {
 
     // Calculate and display the total size of the root folder and its contents
     let total_size: u64 = folder_sizes.values().sum();
-    println!("Current: 📂{}\tSize: {}", format_root_name(folder_path),format_size(total_size));
-    //println!("\nTotal size: {}", format_size(total_size));
+    println!("\nDir: 📂{}\tSize: {}\n", format_root_name(folder_path),format_size(total_size));
 
     // Separate into folders and files
     let mut folders: Vec<_> = folder_sizes.iter()
@@ -274,6 +270,94 @@ fn main() -> io::Result<()> {
 
     // Print the table
     table.printstd();
+    println!("");
+
+
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{self, File};
+    use std::io::Write;
+    use std::path::Path;
+    use std::env;
+
+    #[test]
+    fn test_format_size() {
+        assert_eq!(format_size(0), "0 B");
+        assert_eq!(format_size(1), "1 B");
+        assert_eq!(format_size(1023), "1023 B");
+        assert_eq!(format_size(1024), "1.00 KB");
+        assert_eq!(format_size(1024 * 1024), "1.00 MB");
+        assert_eq!(format_size(1024 * 1024 * 1024), "1.00 GB");
+    }
+
+    #[test]
+    fn test_get_file_type() {
+        assert_eq!(get_file_type(Path::new("test.rs")), "RUST");
+        assert_eq!(get_file_type(Path::new("test.py")), "PYTHON");
+        assert_eq!(get_file_type(Path::new("test.unknown")), "UNKNOWN");
+        assert_eq!(get_file_type(Path::new("file")), "DOT FILE"); // No extension
+    }
+
+    #[test]
+    fn test_format_root_name() {
+        assert_eq!(format_root_name(Path::new("/path/to/file.txt")), "file.txt");
+        assert_eq!(format_root_name(Path::new("/path/to/directory")), "directory");
+        assert_eq!(format_root_name(Path::new("/path/to/unknown")), "unknown");
+    }
+
+    #[test]
+    fn test_calculate_total_size() {
+        let temp_dir = env::temp_dir().join("test_calculate_total_size");
+
+        // Create temp directory and files
+        fs::create_dir(&temp_dir).unwrap();
+        let file_path = temp_dir.join("file1.txt");
+        let mut file = File::create(&file_path).unwrap();
+        file.write_all(b"Hello, world!").unwrap(); // 13 bytes
+
+        let sub_dir = temp_dir.join("sub_dir");
+        fs::create_dir(&sub_dir).unwrap();
+        let sub_file_path = sub_dir.join("file2.txt");
+        let mut sub_file = File::create(&sub_file_path).unwrap();
+        sub_file.write_all(b"Hello, sub world!").unwrap(); // 17 bytes
+
+        // Calculate the size of the temp directory
+        let size = calculate_total_size(&temp_dir).unwrap();
+        assert_eq!(size, 13 + 17); // 13 bytes + 17 bytes
+
+        // Clean up
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+
+    #[test]
+    fn test_get_first_layer_full_sizes() {
+        let temp_dir = env::temp_dir().join("test_get_first_layer_full_sizes");
+
+        // Create temp directory and files
+        fs::create_dir(&temp_dir).unwrap();
+        let file_path = temp_dir.join("file1.txt");
+        let mut file = File::create(&file_path).unwrap();
+        file.write_all(b"Hello, world!").unwrap(); // 13 bytes
+
+        let sub_dir = temp_dir.join("sub_dir");
+        fs::create_dir(&sub_dir).unwrap();
+        let sub_file_path = sub_dir.join("file2.txt");
+        let mut sub_file = File::create(&sub_file_path).unwrap();
+        sub_file.write_all(b"Hello, sub world!").unwrap(); // 17 bytes
+
+        // Get the first layer folder sizes
+        let folder_sizes = get_first_layer_full_sizes(&temp_dir).unwrap();
+
+        assert_eq!(folder_sizes.get(&file_path).unwrap(), &13); // File size
+        assert_eq!(folder_sizes.get(&sub_dir).unwrap(), &(17)); // Size of sub_dir's content
+
+        // Clean up
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+}
+

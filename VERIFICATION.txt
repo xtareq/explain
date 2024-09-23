@@ -1,0 +1,6 @@
+Verification Instructions:
+
+The binary files were obtained from the official source: https://github.com/xtareq/explain/releases/download/v0.1.0/explain.exe.
+
+Verify the integrity of the files using the following checksum:
+SHA-256: bc871c35bd286b4ee3e5caa2c0a4840d02bc80740ed6b3e3b79fafdf4db4dd97

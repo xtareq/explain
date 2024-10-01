@@ -25,6 +25,7 @@ The tool also presents the data in a well-formatted table for easy readability, 
 ## Installation
 
 #### Windows: 
+<<<<<<< HEAD
 For windows users download the  build folder with explain.exe and exp.exe. Then add the folder path to Environment Variable
 
 or run below command in git bash or any bash terminal
@@ -32,6 +33,15 @@ or run below command in git bash or any bash terminal
 git clone https://github.com/xtareq/explain
 mkdir /c/tools/explain
 mv explain/build/ /c/tools/explain
+=======
+For windows users download the latest release. Then add the folder path to Environment Variable
+
+or run below command in git bash or any bash terminal
+```sh
+curl https://github.com/xtareq/explain/releases/download/v0.1.1/explain.exe
+mkdir /c/tools/explain
+mv explain.exe /c/tools/explain
+>>>>>>> 16c5b9a (update files)
 setx PATH "%PATH%;C:\tools\explain"
 ```
 

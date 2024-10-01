@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use prettytable::{Table, Row, Cell};
 use indicatif::{ProgressBar, ProgressStyle};
+<<<<<<< HEAD
 
 fn calculate_total_size(path: &Path) -> io::Result<u64> {
     let mut total_size = 0;
@@ -144,6 +145,12 @@ fn format_root_name(path: &Path) -> String {
         None => "UNKNOWN".to_string(),
     }
 }
+=======
+mod helpers;
+use helpers::*;
+
+
+>>>>>>> 16c5b9a (update files)
 
 fn print_csv_table(file_path: &Path) -> Result<(), Box<dyn Error>> {
     let file = File::open(file_path)?;
@@ -188,6 +195,10 @@ fn main() -> io::Result<()> {
     } else {
         Path::new(".") 
     };
+<<<<<<< HEAD
+=======
+   
+>>>>>>> 16c5b9a (update files)
 
   if folder_path.is_file() {
         // If input is a file, print its content
@@ -220,6 +231,10 @@ fn main() -> io::Result<()> {
     let mut folders: Vec<_> = folder_sizes.iter()
         .filter(|(path, _)| path.is_dir())
         .collect();
+<<<<<<< HEAD
+=======
+
+>>>>>>> 16c5b9a (update files)
     let mut files: Vec<_> = folder_sizes.iter()
         .filter(|(path, _)| path.is_file())
         .collect();
@@ -264,7 +279,10 @@ fn main() -> io::Result<()> {
             Cell::new(&remove_prefix(file)),
             Cell::new(&get_file_type(file)),
             Cell::new(&format_size(*size)),
+<<<<<<< HEAD
             
+=======
+>>>>>>> 16c5b9a (update files)
         ]));
     }
 
@@ -272,8 +290,11 @@ fn main() -> io::Result<()> {
     table.printstd();
     println!("");
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 16c5b9a (update files)
     Ok(())
 }
 

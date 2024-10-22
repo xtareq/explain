@@ -28,16 +28,9 @@ The tool also presents the data in a well-formatted table for easy readability, 
 ```pwsh
 choco install explain
 ```
+or download the lastest binary form [Here](https://github.com/xtareq/explain/releases/download/v0.1.1/explain.exe). Add downloaded binary path to environment variable.
 
-or run below command in git bash or any bash terminal
-```sh
-git clone https://github.com/xtareq/explain
-mkdir /c/tools/explain
-mv explain/build/ /c/tools/explain
-setx PATH "%PATH%;C:\tools\explain"
-```
-
- Verify Installation: Close the current CMD window and open a new one. Verify that your CLI tool works by typing its name:
+Verify Installation: Close the current CMD window and open a new one. Verify that your CLI tool works by typing its name:
 
 ```bash
 explain
@@ -124,15 +117,6 @@ exp [path]
 
 - **Progress Bar**: The progress bar is shown while the directory size is being calculated. It updates as the program scans each entry in the directory.
 
-## Crates Used
-
-The following external libraries (crates) are used in this project:
-
-1. [`csv`](https://docs.rs/csv/latest/csv/) - For reading CSV files.
-2. [`prettytable`](https://docs.rs/prettytable-rs/latest/prettytable/) - For displaying data in a well-formatted table.
-3. [`indicatif`](https://docs.rs/indicatif/latest/indicatif/) - For displaying progress bars.
-4. [`std::env`](https://doc.rust-lang.org/std/env/) - For handling command-line arguments.
-5. [`std::fs`](https://doc.rust-lang.org/std/fs/) - For file system operations like reading directories and file metadata.
 
 ## Contributing
 

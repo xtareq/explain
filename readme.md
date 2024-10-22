@@ -25,7 +25,9 @@ The tool also presents the data in a well-formatted table for easy readability, 
 ## Installation
 
 #### Windows: 
-For windows users download the  build folder with explain.exe and exp.exe. Then add the folder path to Environment Variable
+```pwsh
+choco install explain
+```
 
 or run below command in git bash or any bash terminal
 ```sh

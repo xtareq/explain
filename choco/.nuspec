@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+  <metadata>
+    <id>explain</id>
+    <version>0.1.0</version> 
+    <title>Explain</title>
+    <authors>Tareq Hossain</authors>
+    <owners>Tareq Hossain</owners>
+    <description>Exp short form of Explain is a command-line tool that provides detailed information about the contents of a directory or a file. It can be used as an alternative to common Unix commands like ls and cat, offering additional features such as displaying the top 10 rows of a CSV file and calculating the total sizes of directories and files.
+    The tool also presents the data in a well-formatted table for easy readability, using pretty printing techniques.</description>
+    <tags>explain ls cat advanced-ls</tags>
+    <licenseUrl>https://opensource.org/licenses/MIT</licenseUrl>
+    <projectUrl>https://github.com/xtareq/explain</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+  </metadata>
+</package>

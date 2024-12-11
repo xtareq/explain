@@ -7,78 +7,81 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use prettytable::{Table, Row, Cell};
 use indicatif::{ProgressBar, ProgressStyle};
+use rayon::prelude::*;
+use std::fs::DirEntry;
+
+
 
 fn calculate_total_size(path: &Path) -> io::Result<u64> {
     let mut total_size = 0;
-    let entries = fs::read_dir(path)?;
+    let entries = match fs::read_dir(path) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == io::ErrorKind::PermissionDenied => {
+            eprintln!("Skipping directory due to permission error: {}", path.display());
+            return Ok(0);
+        }
+        Err(e) => return Err(e),
+    };
 
     for entry in entries {
         match entry {
             Ok(entry) => {
                 let metadata = match entry.metadata() {
                     Ok(metadata) => metadata,
-                    Err(e) if e.kind() == io::ErrorKind::PermissionDenied => continue,
+                    Err(e) if e.kind() == io::ErrorKind::PermissionDenied => {
+                        eprintln!("Skipping file due to permission error: {}", entry.path().display());
+                        continue;
+                    }
                     Err(e) => return Err(e),
                 };
 
                 if metadata.is_dir() {
-                    // Recursively calculate the size of subdirectories
                     total_size += calculate_total_size(&entry.path())?;
                 } else {
-                    // Add file size to total
                     total_size += metadata.len();
                 }
             }
-            Err(e) if e.kind() == io::ErrorKind::PermissionDenied => continue,
+            Err(e) if e.kind() == io::ErrorKind::PermissionDenied => {
+                eprintln!("Skipping entry due to permission error: {}", path.display());
+                continue;
+            }
             Err(e) => return Err(e),
         }
     }
 
     Ok(total_size)
 }
-
+// updated first layer full size 
 fn get_first_layer_full_sizes(start_path: &Path) -> io::Result<HashMap<PathBuf, u64>> {
-    let mut folder_sizes = HashMap::new();
-    // Get entries in the root directory
-    let entries = fs::read_dir(start_path)?;
-    let total_entries = entries.count();
-    
-    // Initialize the progress bar
-    let pb = ProgressBar::new(total_entries as u64);
-    pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
-        .progress_chars("##-"));
+    let entries: Vec<DirEntry> = fs::read_dir(start_path)?
+        .filter_map(|entry| entry.ok())
+        .collect();
+
+    let pb = ProgressBar::new(entries.len() as u64);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+            .progress_chars("##-"),
+    );
     pb.enable_steady_tick(100);
-    // Get entries in the root directory
-    let entries = fs::read_dir(start_path)?;
 
-    for entry in entries {
-        match entry {
-            Ok(entry) => {
-                let metadata = match entry.metadata() {
-                    Ok(metadata) => metadata,
-                    Err(e) if e.kind() == io::ErrorKind::PermissionDenied => continue,
-                    Err(e) => return Err(e),
-                };
-
-                if metadata.is_dir() {
-                    // Calculate the full size of this first-level subdirectory (including all nested contents)
-                    let subdir_size = calculate_total_size(&entry.path())?;
-                    folder_sizes.insert(entry.path(), subdir_size);
-                } else {
-                    // Add individual files directly in the root directory with their size
-                    folder_sizes.insert(entry.path(), metadata.len());
-                }
-                 pb.inc(1);
+    let folder_sizes: HashMap<PathBuf, u64> = entries
+        .into_par_iter() // Converts Vec<DirEntry> to a Rayon parallel iterator
+        .filter_map(|entry| {
+            let metadata = entry.metadata().ok()?;
+            if metadata.is_dir() {
+                let size = calculate_total_size(&entry.path()).ok()?;
+                Some((entry.path(), size))
+            } else {
+                Some((entry.path(), metadata.len()))
             }
-            Err(e) if e.kind() == io::ErrorKind::PermissionDenied => continue,
-            Err(e) => return Err(e),
-        }
-    }
+        })
+        .inspect(|_| pb.inc(1))
+        .collect();
+
     pb.finish_and_clear();
     Ok(folder_sizes)
 }
-
 
 fn format_size(size: u64) -> String {
     const KB: u64 = 1_024;
@@ -271,8 +274,6 @@ fn main() -> io::Result<()> {
     // Print the table
     table.printstd();
     println!("");
-
-
 
     Ok(())
 }

@@ -9,9 +9,8 @@
 
 The tool also presents the data in a well-formatted table for easy readability, using pretty printing techniques.
 ## Screenshot
-
+![Explain CLI Screenshot](screenshots/sshot2.png)
 ![Explain CLI Screenshot](screenshots/sshot1.png)
-
 ## Features
 
 1. **Directory Size Information**: 

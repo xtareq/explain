@@ -1,5 +1,10 @@
 # Exp or Explain
+<p align="center">
 
+
+
+[![Build](https://github.com/xtareq/exaplain/actions/workflows/explain.yml/badge.svg)](https://github.com/xtareq/explain/actions/workflows/explain.yml)
+</p>
 **Exp** short form of **Explain** is a command-line tool that provides detailed information about the contents of a directory or a file. It can be used as an alternative to common Unix commands like `ls` and `cat`, offering additional features such as displaying the top 10 rows of a CSV file and calculating the total sizes of directories and files. 
 
 The tool also presents the data in a well-formatted table for easy readability, using pretty printing techniques.
@@ -28,7 +33,7 @@ The tool also presents the data in a well-formatted table for easy readability, 
 ```pwsh
 choco install explain
 ```
-or download the lastest binary form [Here](https://github.com/xtareq/explain/releases/download/v0.1.1/explain.exe). Add downloaded binary path to environment variable.
+or download the lastest binary form [Here](https://github.com/xtareq/explain/releases/download/v0.1.2/explain.exe). Add downloaded binary path to environment variable.
 
 Verify Installation: Close the current CMD window and open a new one. Verify that your CLI tool works by typing its name:
 

@@ -3,7 +3,7 @@
 
 
 
-[![Build](https://github.com/xtareq/exaplain/actions/workflows/explain.yml/badge.svg)](https://github.com/xtareq/explain/actions/workflows/explain.yml/badge.svg)
+![Build](https://github.com/xtareq/explain/actions/workflows/explain.yml/badge.svg)
 </p>
 **Exp** short form of **Explain** is a command-line tool that provides detailed information about the contents of a directory or a file. It can be used as an alternative to common Unix commands like `ls` and `cat`, offering additional features such as displaying the top 10 rows of a CSV file and calculating the total sizes of directories and files. 
 

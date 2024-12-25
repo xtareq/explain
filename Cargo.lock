@@ -122,7 +122,7 @@ checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
 
 [[package]]
 name = "explain"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "csv",
  "indicatif",
@@ -216,7 +216,6 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eea25e07510aa6ab6547308ebe3c036016d162b8da920dbb079e3ba8acf3d95a"
 dependencies = [
- "csv",
  "encode_unicode 1.0.0",
  "is-terminal",
  "lazy_static",

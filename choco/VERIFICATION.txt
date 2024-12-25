@@ -11,6 +11,6 @@ and can be verified like this:
   - Use chocolatey utility 'checksum.exe'
 
   checksum type: sha256
-  checksum32: 9A36EC8CB95698A56B3FE3F4A71DBBEAE3557A926CC6E35F075CA04A9FDA7F6F
+  checksum32: A3157D1274C50F72750AFAC306EF28083C8C168F7A7CE7054B974D66DB86F655
 
 File 'LICENSE.txt' is obtained from <https://github.com/xtareq/explain/blob/master/LICENSE>

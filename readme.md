@@ -1,12 +1,16 @@
 # Exp or Explain
+<p align="center">
 
+
+
+![Build](https://github.com/xtareq/explain/actions/workflows/explain.yml/badge.svg)
+</p>
 **Exp** short form of **Explain** is a command-line tool that provides detailed information about the contents of a directory or a file. It can be used as an alternative to common Unix commands like `ls` and `cat`, offering additional features such as displaying the top 10 rows of a CSV file and calculating the total sizes of directories and files. 
 
 The tool also presents the data in a well-formatted table for easy readability, using pretty printing techniques.
 ## Screenshot
-
+![Explain CLI Screenshot](screenshots/sshot2.png)
 ![Explain CLI Screenshot](screenshots/sshot1.png)
-
 ## Features
 
 1. **Directory Size Information**: 
@@ -25,27 +29,12 @@ The tool also presents the data in a well-formatted table for easy readability, 
 ## Installation
 
 #### Windows: 
-<<<<<<< HEAD
-For windows users download the  build folder with explain.exe and exp.exe. Then add the folder path to Environment Variable
-
-or run below command in git bash or any bash terminal
-```sh
-git clone https://github.com/xtareq/explain
-mkdir /c/tools/explain
-mv explain/build/ /c/tools/explain
-=======
-For windows users download the latest release. Then add the folder path to Environment Variable
-
-or run below command in git bash or any bash terminal
-```sh
-curl https://github.com/xtareq/explain/releases/download/v0.1.1/explain.exe
-mkdir /c/tools/explain
-mv explain.exe /c/tools/explain
->>>>>>> 16c5b9a (update files)
-setx PATH "%PATH%;C:\tools\explain"
+```pwsh
+choco install explain
 ```
+or download the lastest binary form [Here](https://github.com/xtareq/explain/releases/download/v0.1.2/explain.exe). Add downloaded binary path to environment variable.
 
- Verify Installation: Close the current CMD window and open a new one. Verify that your CLI tool works by typing its name:
+Verify Installation: Close the current CMD window and open a new one. Verify that your CLI tool works by typing its name:
 
 ```bash
 explain
@@ -132,15 +121,6 @@ exp [path]
 
 - **Progress Bar**: The progress bar is shown while the directory size is being calculated. It updates as the program scans each entry in the directory.
 
-## Crates Used
-
-The following external libraries (crates) are used in this project:
-
-1. [`csv`](https://docs.rs/csv/latest/csv/) - For reading CSV files.
-2. [`prettytable`](https://docs.rs/prettytable-rs/latest/prettytable/) - For displaying data in a well-formatted table.
-3. [`indicatif`](https://docs.rs/indicatif/latest/indicatif/) - For displaying progress bars.
-4. [`std::env`](https://doc.rust-lang.org/std/env/) - For handling command-line arguments.
-5. [`std::fs`](https://doc.rust-lang.org/std/fs/) - For file system operations like reading directories and file metadata.
 
 ## Contributing
 

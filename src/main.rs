@@ -10,8 +10,6 @@ use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use std::fs::DirEntry;
 
-
-
 fn calculate_total_size(path: &Path) -> io::Result<u64> {
     let mut total_size = 0;
     let entries = match fs::read_dir(path) {

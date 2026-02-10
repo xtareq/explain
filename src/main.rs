@@ -1,354 +1,356 @@
+use anyhow::{Context, Result};
+use clap::{Parser, ValueEnum};
+use indicatif::{ProgressBar, ProgressStyle};
+use prettytable::{Cell, Row, Table};
+use rayon::prelude::*;
+use serde::Serialize;
 use std::env;
-use csv::ReaderBuilder;
 use std::fs::{self, File};
 use std::io::{self, Read};
-use std::error::Error;
 use std::path::{Path, PathBuf};
-use std::collections::HashMap;
-use prettytable::{Table, Row, Cell};
-use indicatif::{ProgressBar, ProgressStyle};
-use rayon::prelude::*;
-use std::fs::DirEntry;
+use walkdir::{DirEntry, WalkDir};
 
+#[derive(Debug, Clone, ValueEnum)]
+enum SortBy {
+    Size,
+    Name,
+    Type,
+}
 
+#[derive(Parser, Debug)]
+#[command(name = "rdu", about = "Fast folder size + preview tool")]
+struct Args {
+    /// Path to scan (file or directory)
+    #[arg(default_value = ".")]
+    path: PathBuf,
 
-fn calculate_total_size(path: &Path) -> io::Result<u64> {
-    let mut total_size = 0;
-    let entries = match fs::read_dir(path) {
-        Ok(entries) => entries,
-        Err(e) if e.kind() == io::ErrorKind::PermissionDenied => {
-            eprintln!("Skipping directory due to permission error: {}", path.display());
-            return Ok(0);
-        }
-        Err(e) => return Err(e),
-    };
+    /// Show only top N entries
+    #[arg(long, default_value_t = 50)]
+    top: usize,
 
-    for entry in entries {
-        match entry {
-            Ok(entry) => {
-                let metadata = match entry.metadata() {
-                    Ok(metadata) => metadata,
-                    Err(e) if e.kind() == io::ErrorKind::PermissionDenied => {
-                        eprintln!("Skipping file due to permission error: {}", entry.path().display());
-                        continue;
-                    }
-                    Err(e) => return Err(e),
-                };
+    /// Sorting strategy
+    #[arg(long, value_enum, default_value_t = SortBy::Size)]
+    sort: SortBy,
 
-                if metadata.is_dir() {
-                    total_size += calculate_total_size(&entry.path())?;
-                } else {
-                    total_size += metadata.len();
-                }
-            }
-            Err(e) if e.kind() == io::ErrorKind::PermissionDenied => {
-                eprintln!("Skipping entry due to permission error: {}", path.display());
-                continue;
-            }
-            Err(e) => return Err(e),
+    /// Maximum depth for scanning (0 = first layer only, 1 = full subtree sizes for first layer items)
+    #[arg(long, default_value_t = 1)]
+    depth: usize,
+
+    /// Follow symlinks (can be dangerous if cycles exist)
+    #[arg(long, default_value_t = false)]
+    follow_symlinks: bool,
+
+    /// Skip common heavy folders (.git, node_modules, target, dist, build)
+    #[arg(long, default_value_t = true)]
+    smart_ignore: bool,
+
+    /// Output JSON instead of table
+    #[arg(long, default_value_t = false)]
+    json: bool,
+
+    /// Print extension summary (top 20)
+    #[arg(long, default_value_t = false)]
+    ext: bool,
+
+    /// Minimum size filter in bytes
+    #[arg(long)]
+    min_size: Option<u64>,
+
+    /// Print only first N lines when previewing a file
+    #[arg(long, default_value_t = 400)]
+    head: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct EntryInfo {
+    path: PathBuf,
+    is_dir: bool,
+    size: u64,
+    file_type: String,
+}
+
+fn format_root_name(path: &Path) -> String {
+    // Handle roots like "C:\" on Windows
+    if path.parent().is_none() {
+        return path.display().to_string();
+    }
+    path.file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| path.display().to_string())
+}
+
+fn is_ignored(entry: &DirEntry, smart_ignore: bool) -> bool {
+    if !smart_ignore {
+        return false;
+    }
+    let name = entry.file_name().to_string_lossy().to_lowercase();
+    matches!(
+        name.as_str(),
+        ".git" | "node_modules" | "target" | "dist" | "build" | ".idea" | ".vscode"
+    )
+}
+
+fn calculate_tree_size(root: &Path, follow_symlinks: bool, smart_ignore: bool) -> u64 {
+    WalkDir::new(root)
+        .follow_links(follow_symlinks)
+        .into_iter()
+        .filter_entry(|e| !is_ignored(e, smart_ignore))
+        .filter_map(|e| e.ok())
+        .filter_map(|e| e.metadata().ok().map(|m| (e, m)))
+        .filter(|(_, m)| m.is_file())
+        .map(|(_, m)| m.len())
+        .sum()
+}
+
+fn get_file_type(path: &std::path::Path) -> String {
+    // Treat dotfiles like ".env" as DOT FILE
+    if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+        if name.starts_with('.') {
+            return "DOT FILE".to_string();
         }
     }
 
-    Ok(total_size)
+    let  ext = path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    match ext.as_str() {
+        "rs" => "RUST".to_string(),
+        "py" => "PYTHON".to_string(),
+        "js" => "JAVASCRIPT".to_string(),
+        "ts" => "TYPESCRIPT".to_string(),
+        "cpp" => "C++".to_string(),
+        "c" => "C".to_string(),
+        "cs" => "C#".to_string(),
+        "rb" => "RUBY".to_string(),
+        "sh" => "SHELL".to_string(),
+        "toml" => "CARGO".to_string(),
+        "exe" => "APPLICATION".to_string(),
+        "pem" => "KEY".to_string(),
+        "md" => "MARKDOWN".to_string(),
+        "mp3" => "MP3 AUDIO".to_string(),
+        "m4a" => "M4A AUDIO".to_string(),
+        "mp4" => "MP4 VIDEO".to_string(),
+        "mkv" => "MKV VIDEO".to_string(),
+        "jpg" | "jpeg" => "JPEG IMAGE".to_string(),
+        "png" => "PNG IMAGE".to_string(),
+        "pdf" => "PDF".to_string(),
+        "txt" => "PLAIN TEXT".to_string(),
+        "" => "NO EXT".to_string(),
+        _=> ext.to_uppercase(), // <-- return the String, don't borrow it
+    }
 }
-// updated first layer full size 
-fn get_first_layer_full_sizes(start_path: &Path) -> io::Result<HashMap<PathBuf, u64>> {
-    let entries: Vec<DirEntry> = fs::read_dir(start_path)?
-        .filter_map(|entry| entry.ok())
-        .collect();
+
+fn collect_first_layer_entries(start: &Path, args: &Args) -> Result<Vec<EntryInfo>> {
+    let read_dir = fs::read_dir(start)
+        .with_context(|| format!("Failed to read directory {}", start.display()))?;
+
+    let entries: Vec<fs::DirEntry> = read_dir.filter_map(|e| e.ok()).collect();
 
     let pb = ProgressBar::new(entries.len() as u64);
     pb.set_style(
-        ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
-            .progress_chars("##-"),
+        ProgressStyle::with_template(
+            "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}",
+        )
+        .unwrap()
+        .progress_chars("##-"),
     );
-    pb.enable_steady_tick(100);
+    pb.enable_steady_tick(std::time::Duration::from_millis(100));
+    let pb = std::sync::Arc::new(pb);
 
-    let folder_sizes: HashMap<PathBuf, u64> = entries
-        .into_par_iter() // Converts Vec<DirEntry> to a Rayon parallel iterator
+    let results: Vec<EntryInfo> = entries
+        .into_par_iter()
         .filter_map(|entry| {
-            let metadata = entry.metadata().ok()?;
-            if metadata.is_dir() {
-                let size = calculate_total_size(&entry.path()).ok()?;
-                Some((entry.path(), size))
-            } else {
-                Some((entry.path(), metadata.len()))
+            let path = entry.path();
+            let md = entry.metadata().ok()?;
+
+            // ignore at first layer too
+            if args.smart_ignore {
+                if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                    let n = name.to_lowercase();
+                    if matches!(
+                        n.as_str(),
+                        ".git" | "node_modules" | "target" | "dist" | "build" | ".idea" | ".vscode"
+                    ) {
+                        pb.inc(1);
+                        return None;
+                    }
+                }
             }
+
+            let is_dir = md.is_dir();
+            let size = if is_dir {
+                if args.depth == 0 {
+                    0
+                } else {
+                    calculate_tree_size(&path, args.follow_symlinks, args.smart_ignore)
+                }
+            } else {
+                md.len()
+            };
+
+            pb.inc(1);
+
+            Some(EntryInfo {
+                file_type: if is_dir { "-".into() } else { get_file_type(&path) },
+                path,
+                is_dir,
+                size,
+            })
         })
-        .inspect(|_| pb.inc(1))
         .collect();
 
     pb.finish_and_clear();
-    Ok(folder_sizes)
+    Ok(results)
 }
 
-fn format_size(size: u64) -> String {
-    const KB: u64 = 1_024;
-    const MB: u64 = KB * 1_024;
-    const GB: u64 = MB * 1_024;
-
-    if size >= GB {
-        format!("{:.2} GB", size as f64 / GB as f64)
-    } else if size >= MB {
-        format!("{:.2} MB", size as f64 / MB as f64)
-    } else if size >= KB {
-        format!("{:.2} KB", size as f64 / KB as f64)
-    } else {
-        format!("{} B", size)
-    }
-}
-
-
-fn get_file_type(path: &Path) -> String {
-    let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
-    match extension {
-        "rs" => "Rust".to_uppercase(),
-        "py" => "Python".to_uppercase(),
-        "js" => "JavaScript".to_uppercase(),
-        "ts" => "TypeScript".to_uppercase(),
-        "cpp" => "C++".to_uppercase(),
-        "c" => "C".to_uppercase(),
-        "cs" => "C#".to_uppercase(),
-        "rb" => "Ruby".to_uppercase(),
-        "sh" => "Shell".to_uppercase(),
-        "toml" => "Cargo".to_uppercase(),
-        "exe" => "Application".to_uppercase(),
-        "pem" => "Key".to_uppercase(),
-        "md" => "Markdown".to_uppercase(),
-        "mp3" => "Mp3 Audio".to_uppercase(),
-        "m4a" => "M4a Audio".to_uppercase(),
-        "mp4" => "MP4 Video".to_uppercase(),
-        "mkv" => "MKV Video".to_uppercase(),
-        "jpg" => "JPEG Image".to_uppercase(),
-        "png" => "PNG Image".to_uppercase(),
-        "pdf" => "PDF".to_uppercase(),
-        "txt" => "Palin Text".to_uppercase(),
-        "" => "Dot File".to_uppercase(),
-        _ => extension.to_uppercase(),
-    }
-}
-
-
-fn format_root_name(path: &Path) -> String {
-    let normalized_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    match normalized_path.file_name() {
-        Some(name) => name.to_string_lossy().to_string(),
-        None => "UNKNOWN".to_string(),
-    }
-}
-
-fn print_csv_table(file_path: &Path) -> Result<(), Box<dyn Error>> {
-    let file = File::open(file_path)?;
-    let mut rdr = ReaderBuilder::new().has_headers(true).from_reader(file);
-
-    // Create a table for pretty printing
-    let mut table = Table::new();
-
-    // Get headers and add them to the table
-    let headers = rdr.headers()?;
-    let header_row: Vec<Cell> = headers.iter().map(|h| Cell::new(h)).collect();
-    table.add_row(Row::new(header_row));
-
-    // Read and add the top 10 rows to the table
-    for result in rdr.records().take(10) {
-        let record = result?;
-        let cells: Vec<Cell> = record.iter().map(|field| Cell::new(field)).collect();
-        table.add_row(Row::new(cells));
+fn apply_filters(mut v: Vec<EntryInfo>, args: &Args) -> Vec<EntryInfo> {
+    if let Some(min) = args.min_size {
+        v.retain(|e| e.size >= min);
     }
 
-    // Print the table
-    table.printstd();
+    match args.sort {
+        SortBy::Size => v.sort_by_key(|e| std::cmp::Reverse(e.size)),
+        SortBy::Name => v.sort_by_key(|e| e.path.to_string_lossy().to_lowercase()),
+        SortBy::Type => v.sort_by_key(|e| e.file_type.clone()),
+    }
 
-    Ok(())
-}
-fn print_file_content(path: &Path) -> io::Result<()> {
-    let mut file = fs::File::open(path)?;
-    let mut content = String::new();
-    file.read_to_string(&mut content)?;
-    //let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
-
-    println!("{}", &content);
-
-    Ok(())
+    v.truncate(args.top);
+    v
 }
 
-fn main() -> io::Result<()> {
-    // Get input or use the current directory 
-    let args: Vec<String> = env::args().collect();
-    let folder_path = if args.len() > 1 {
-        Path::new(&args[1]) 
-    } else {
-        Path::new(".") 
-    };
+fn print_table(entries: &[EntryInfo], root: &Path) {
+    #[derive(Clone)]
+    struct RowData {
+        icon: String,
+        path: String,
+        typ: String,
+        size: String,
+    }
 
-  if folder_path.is_file() {
-        // If input is a file, print its content
-        if folder_path.extension().and_then(|e| e.to_str()) == Some("csv") {
+    // 1) Prepare owned row strings that will live long enough
+    let rows: Vec<RowData> = entries
+        .iter()
+        .map(|e| {
+            let icon = if e.is_dir { "📁" } else { "📄" }.to_string();
 
-            if let Err(e) = print_csv_table(&folder_path) {
-            eprintln!("Error reading file: {}", e);
-            }
-        } else {
-              if let Err(e) = print_file_content(&folder_path) {
-            eprintln!("Error reading file: {}", e);
-            }
-        }
-        return Ok(());
-    } 
+            let path = e
+                .path
+                .strip_prefix(root)
+                .unwrap_or(&e.path)
+                .display()
+                .to_string();
 
-    let folder_sizes = match get_first_layer_full_sizes(folder_path) {
-        Ok(folder_sizes) => folder_sizes,
-        Err(e) => {
-            eprintln!("Error calculating folder size: {}", e);
-            return Err(e);
-        }
-    };
+            let typ = e.file_type.clone();
 
-    // Calculate and display the total size of the root folder and its contents
-    let total_size: u64 = folder_sizes.values().sum();
-    println!("\nDir: 📂{}\tSize: {}\n", format_root_name(folder_path),format_size(total_size));
+            let size = humansize::format_size(e.size, humansize::BINARY);
 
-    // Separate into folders and files
-    let mut folders: Vec<_> = folder_sizes.iter()
-        .filter(|(path, _)| path.is_dir())
-        .collect();
-    let mut files: Vec<_> = folder_sizes.iter()
-        .filter(|(path, _)| path.is_file())
+            RowData { icon, path, typ, size }
+        })
         .collect();
 
-    // Sort folders and files by size in descending order
-    folders.sort_by_key(|(_, size)| std::cmp::Reverse(*size));
-    files.sort_by_key(|(_, size)| std::cmp::Reverse(*size));
-
-    // Create and configure the table
+    // 2) Build the table using references to the owned strings
     let mut table = Table::new();
     table.add_row(Row::new(vec![
         Cell::new("#"),
         Cell::new("Path"),
-        Cell::new("Type"),        
+        Cell::new("Type"),
         Cell::new("Size"),
-        
     ]));
 
-    // Function to remove the current directory prefix
-    let remove_prefix = |path: &Path| {
-        path.strip_prefix(".\\")
-            .or_else(|_| path.strip_prefix("./"))
-            .unwrap_or(path)
-            .display().to_string()
-    };
-
-    // Add folders to the table
-    for (folder, size) in folders {
+    for r in &rows {
         table.add_row(Row::new(vec![
-            Cell::new("📁"),
-            Cell::new(&remove_prefix(folder)),
-            Cell::new("-"),
-            Cell::new(&format_size(*size)),
-
+            Cell::new(&r.icon),
+            Cell::new(&r.path),
+            Cell::new(&r.typ),
+            Cell::new(&r.size),
         ]));
     }
 
-    // Add files to the table
-    for (file, size) in files {
-        table.add_row(Row::new(vec![
-            Cell::new("📄"),
-            Cell::new(&remove_prefix(file)),
-            Cell::new(&get_file_type(file)),
-            Cell::new(&format_size(*size)),
-            
-        ]));
-    }
-
-    // Print the table
     table.printstd();
-    println!("");
+}
 
+fn print_ext_summary(all: &[EntryInfo]) {
+    use std::collections::BTreeMap;
+    let mut map: BTreeMap<String, (u64, u64)> = BTreeMap::new(); // ext -> (count, bytes)
+
+    for e in all.iter().filter(|e| !e.is_dir) {
+        let ext = e
+            .path
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        let key = if ext.is_empty() { "(none)".into() } else { ext };
+        let entry = map.entry(key).or_insert((0, 0));
+        entry.0 += 1;
+        entry.1 += e.size;
+    }
+
+    println!("\nBy extension (top 20):");
+    for (ext, (count, bytes)) in map.iter().rev().take(20) {
+        println!(
+            "{:>10}  {:>6} files  {}",
+            ext,
+            count,
+            humansize::format_size(*bytes, humansize::BINARY)
+        );
+    }
+}
+
+fn print_json(entries: &[EntryInfo]) -> Result<()> {
+    println!("{}", serde_json::to_string_pretty(entries)?);
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs::{self, File};
-    use std::io::Write;
-    use std::path::Path;
-    use std::env;
+fn print_file_head(path: &Path, head: usize) -> io::Result<()> {
+    let mut file = fs::File::open(path)?;
+    let mut content = String::new();
+    file.read_to_string(&mut content)?;
 
-    #[test]
-    fn test_format_size() {
-        assert_eq!(format_size(0), "0 B");
-        assert_eq!(format_size(1), "1 B");
-        assert_eq!(format_size(1023), "1023 B");
-        assert_eq!(format_size(1024), "1.00 KB");
-        assert_eq!(format_size(1024 * 1024), "1.00 MB");
-        assert_eq!(format_size(1024 * 1024 * 1024), "1.00 GB");
+    for (i, line) in content.lines().take(head).enumerate() {
+        println!("{:>5} {}", i + 1, line);
     }
-
-    #[test]
-    fn test_get_file_type() {
-        assert_eq!(get_file_type(Path::new("test.rs")), "RUST");
-        assert_eq!(get_file_type(Path::new("test.py")), "PYTHON");
-        assert_eq!(get_file_type(Path::new("test.unknown")), "UNKNOWN");
-        assert_eq!(get_file_type(Path::new("file")), "DOT FILE"); // No extension
-    }
-
-    #[test]
-    fn test_format_root_name() {
-        assert_eq!(format_root_name(Path::new("/path/to/file.txt")), "file.txt");
-        assert_eq!(format_root_name(Path::new("/path/to/directory")), "directory");
-        assert_eq!(format_root_name(Path::new("/path/to/unknown")), "unknown");
-    }
-
-    #[test]
-    fn test_calculate_total_size() {
-        let temp_dir = env::temp_dir().join("test_calculate_total_size");
-
-        // Create temp directory and files
-        fs::create_dir(&temp_dir).unwrap();
-        let file_path = temp_dir.join("file1.txt");
-        let mut file = File::create(&file_path).unwrap();
-        file.write_all(b"Hello, world!").unwrap(); // 13 bytes
-
-        let sub_dir = temp_dir.join("sub_dir");
-        fs::create_dir(&sub_dir).unwrap();
-        let sub_file_path = sub_dir.join("file2.txt");
-        let mut sub_file = File::create(&sub_file_path).unwrap();
-        sub_file.write_all(b"Hello, sub world!").unwrap(); // 17 bytes
-
-        // Calculate the size of the temp directory
-        let size = calculate_total_size(&temp_dir).unwrap();
-        assert_eq!(size, 13 + 17); // 13 bytes + 17 bytes
-
-        // Clean up
-        fs::remove_dir_all(temp_dir).unwrap();
-    }
-
-    #[test]
-    fn test_get_first_layer_full_sizes() {
-        let temp_dir = env::temp_dir().join("test_get_first_layer_full_sizes");
-
-        // Create temp directory and files
-        fs::create_dir(&temp_dir).unwrap();
-        let file_path = temp_dir.join("file1.txt");
-        let mut file = File::create(&file_path).unwrap();
-        file.write_all(b"Hello, world!").unwrap(); // 13 bytes
-
-        let sub_dir = temp_dir.join("sub_dir");
-        fs::create_dir(&sub_dir).unwrap();
-        let sub_file_path = sub_dir.join("file2.txt");
-        let mut sub_file = File::create(&sub_file_path).unwrap();
-        sub_file.write_all(b"Hello, sub world!").unwrap(); // 17 bytes
-
-        // Get the first layer folder sizes
-        let folder_sizes = get_first_layer_full_sizes(&temp_dir).unwrap();
-
-        assert_eq!(folder_sizes.get(&file_path).unwrap(), &13); // File size
-        assert_eq!(folder_sizes.get(&sub_dir).unwrap(), &(17)); // Size of sub_dir's content
-
-        // Clean up
-        fs::remove_dir_all(temp_dir).unwrap();
-    }
+    Ok(())
 }
 
+fn main() -> Result<()> {
+    // Keep your old behavior: allow passing path as first argument
+    // But clap already handles it; this is just to keep compatibility.
+    let _ = env::args();
+
+    let args = Args::parse();
+    let path = args.path.clone();
+
+    if path.is_file() {
+        // file preview (csv preview can be re-added; keeping simple here)
+        print_file_head(&path, args.head)
+            .with_context(|| format!("Failed to read file {}", path.display()))?;
+        return Ok(());
+    }
+
+    let entries = collect_first_layer_entries(&path, &args)?;
+
+    let total: u64 = entries.iter().map(|e| e.size).sum();
+    println!(
+        "\nDir: 📂{}\tSize: {}\n",
+        format_root_name(&path),
+        humansize::format_size(total, humansize::BINARY)
+    );
+
+    if args.ext {
+        print_ext_summary(&entries);
+    }
+
+    let entries = apply_filters(entries, &args);
+
+    if args.json {
+        print_json(&entries)?;
+    } else {
+        print_table(&entries, &path);
+    }
+
+    Ok(())
+}
